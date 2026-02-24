@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>iFindLife – UX Audit Todo List</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: #f0f4f8; color: #1a202c; }
+
+  header {
+    background: linear-gradient(135deg, #1a202c 0%, #2d3748 100%);
+    color: white; padding: 28px 32px;
+  }
+  header h1 { font-size: 24px; font-weight: 700; }
+  header p { font-size: 13px; color: #a0aec0; margin-top: 4px; }
+
+  .stats {
+    display: flex; gap: 12px; padding: 20px 32px;
+    flex-wrap: wrap;
+  }
+  .stat-card {
+    background: white; border-radius: 10px; padding: 14px 20px;
+    flex: 1; min-width: 120px; text-align: center;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  }
+  .stat-card .num { font-size: 28px; font-weight: 700; }
+  .stat-card .label { font-size: 11px; color: #718096; margin-top: 2px; }
+  .stat-card.total .num { color: #2d3748; }
+  .stat-card.done .num { color: #38a169; }
+  .stat-card.pending .num { color: #e53e3e; }
+
+  .controls {
+    display: flex; gap: 10px; padding: 0 32px 16px;
+    flex-wrap: wrap; align-items: center;
+  }
+  .filter-btn {
+    padding: 6px 14px; border-radius: 20px; border: 2px solid transparent;
+    cursor: pointer; font-size: 12px; font-weight: 600; transition: all 0.2s;
+    background: white; color: #4a5568;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  }
+  .filter-btn:hover { transform: translateY(-1px); }
+  .filter-btn.active { color: white; }
+  .filter-btn[data-filter="all"].active { background: #2d3748; border-color: #2d3748; }
+  .filter-btn[data-filter="critical"].active { background: #e53e3e; border-color: #e53e3e; }
+  .filter-btn[data-filter="high"].active { background: #dd6b20; border-color: #dd6b20; }
+  .filter-btn[data-filter="medium"].active { background: #d69e2e; border-color: #d69e2e; }
+  .filter-btn[data-filter="low"].active { background: #38a169; border-color: #38a169; }
+  .filter-btn[data-filter="done"].active { background: #805ad5; border-color: #805ad5; }
+
+  .reset-btn {
+    margin-left: auto; padding: 6px 14px; border-radius: 20px;
+    border: 2px solid #e53e3e; color: #e53e3e; background: white;
+    cursor: pointer; font-size: 12px; font-weight: 600;
+  }
+  .reset-btn:hover { background: #e53e3e; color: white; }
+  .share-btn {
+    padding: 6px 14px; border-radius: 20px;
+    border: 2px solid #3182ce; color: #3182ce; background: white;
+    cursor: pointer; font-size: 12px; font-weight: 600;
+    margin-left: auto;
+  }
+  .share-btn:hover { background: #3182ce; color: white; }
+
+  .section {
+    margin: 0 32px 20px;
+  }
+  .section-header {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 10px; cursor: pointer; user-select: none;
+  }
+  .section-header h2 { font-size: 15px; font-weight: 700; color: #2d3748; }
+  .section-toggle { font-size: 12px; color: #a0aec0; margin-left: auto; }
+
+  .todo-item {
+    background: white; border-radius: 10px; padding: 14px 16px;
+    margin-bottom: 8px; display: flex; align-items: flex-start; gap: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.07);
+    transition: all 0.2s; border-left: 4px solid transparent;
+    cursor: pointer;
+  }
+  .todo-item:hover { transform: translateX(2px); box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
+  .todo-item.done { opacity: 0.5; }
+  .todo-item.done .todo-text { text-decoration: line-through; color: #a0aec0; }
+  .todo-item.critical { border-left-color: #e53e3e; }
+  .todo-item.high { border-left-color: #dd6b20; }
+  .todo-item.medium { border-left-color: #d69e2e; }
+  .todo-item.low { border-left-color: #38a169; }
+
+  .checkbox {
+    width: 20px; height: 20px; border: 2px solid #cbd5e0; border-radius: 50%;
+    flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s; margin-top: 1px;
+  }
+  .todo-item.done .checkbox { background: #38a169; border-color: #38a169; }
+  .checkbox::after { content: '✓'; color: white; font-size: 11px; display: none; font-weight: 700; }
+  .todo-item.done .checkbox::after { display: block; }
+
+  .todo-content { flex: 1; }
+  .todo-text { font-size: 13px; line-height: 1.5; color: #2d3748; }
+  .todo-meta { display: flex; gap: 6px; margin-top: 5px; flex-wrap: wrap; }
+  .tag {
+    font-size: 10px; padding: 2px 8px; border-radius: 20px; font-weight: 600;
+  }
+  .tag.critical { background: #fff5f5; color: #e53e3e; }
+  .tag.high { background: #fffaf0; color: #dd6b20; }
+  .tag.medium { background: #fffff0; color: #b7791f; }
+  .tag.low { background: #f0fff4; color: #276749; }
+  .tag.location { background: #ebf4ff; color: #2b6cb0; }
+
+  .progress-bar {
+    height: 6px; background: #e2e8f0; border-radius: 3px; margin: 8px 32px 24px;
+    overflow: hidden;
+  }
+  .progress-fill { height: 100%; background: linear-gradient(90deg, #38a169, #68d391); border-radius: 3px; transition: width 0.5s; }
+
+  .hidden { display: none; }
+  .empty-state { text-align: center; padding: 40px; color: #a0aec0; font-size: 14px; }
+  .delete-btn {
+    flex-shrink: 0; background: none; border: none; color: #cbd5e0;
+    font-size: 14px; cursor: pointer; padding: 4px 6px; border-radius: 4px;
+    line-height: 1; transition: all 0.15s;
+  }
+  .delete-btn:hover { color: #e53e3e; background: #fff5f5; }
+  .tag.custom-tag { background: #faf5ff; color: #6b46c1; }
+
+  footer { padding: 20px 32px; text-align: center; color: #a0aec0; font-size: 11px; }
+
+  .add-task-section {
+    margin: 0 32px 24px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    overflow: hidden;
+  }
+  .add-task-toggle {
+    width: 100%; padding: 14px 18px;
+    background: none; border: none; cursor: pointer;
+    display: flex; align-items: center; gap: 10px;
+    font-size: 14px; font-weight: 600; color: #2d3748;
+    text-align: left;
+  }
+  .add-task-toggle:hover { background: #f7fafc; }
+  .add-task-toggle .plus-icon {
+    width: 26px; height: 26px; border-radius: 50%;
+    background: #ebf8ff; color: #3182ce;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; font-weight: 400; line-height: 1;
+    flex-shrink: 0;
+  }
+  .add-task-form {
+    padding: 0 18px 16px;
+    border-top: 1px solid #f0f4f8;
+    display: none;
+  }
+  .add-task-form.open { display: block; }
+  .form-row { margin-top: 12px; }
+  .form-row label { font-size: 11px; font-weight: 600; color: #718096; display: block; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .form-row input, .form-row select, .form-row textarea {
+    width: 100%; padding: 8px 12px;
+    border: 1.5px solid #e2e8f0; border-radius: 8px;
+    font-size: 13px; color: #2d3748; background: #f7fafc;
+    outline: none; transition: border 0.2s;
+    font-family: inherit;
+  }
+  .form-row textarea { resize: vertical; min-height: 60px; }
+  .form-row input:focus, .form-row select:focus, .form-row textarea:focus {
+    border-color: #3182ce; background: white;
+  }
+  .form-inline { display: flex; gap: 10px; }
+  .form-inline .form-row { flex: 1; }
+  .add-btn {
+    margin-top: 14px; padding: 9px 22px;
+    background: #3182ce; color: white;
+    border: none; border-radius: 8px;
+    font-size: 13px; font-weight: 600; cursor: pointer;
+    transition: background 0.2s;
+  }
+  .add-btn:hover { background: #2b6cb0; }
+  .cancel-btn {
+    margin-top: 14px; margin-left: 8px; padding: 9px 16px;
+    background: none; color: #718096;
+    border: 1.5px solid #e2e8f0; border-radius: 8px;
+    font-size: 13px; cursor: pointer;
+  }
+  .cancel-btn:hover { background: #f7fafc; }
+  .success-flash {
+    display: none; margin-top: 10px;
+    padding: 8px 12px; background: #f0fff4;
+    color: #276749; border-radius: 8px;
+    font-size: 12px; font-weight: 600;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🔍 iFindLife – UX Audit Todo List</h1>
+  <p>100+ missing messages & UX issues identified | Prioritized by severity</p>
+</header>
+
+<div class="stats">
+  <div class="stat-card total"><div class="num" id="totalCount">0</div><div class="label">Total Tasks</div></div>
+  <div class="stat-card done"><div class="num" id="doneCount">0</div><div class="label">Completed</div></div>
+  <div class="stat-card pending"><div class="num" id="pendingCount">0</div><div class="label">Remaining</div></div>
+  <div class="stat-card" style=""><div class="num" id="pctCount" style="color:#3182ce">0%</div><div class="label">Progress</div></div>
+</div>
+
+<div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+
+<div class="controls">
+  <button class="filter-btn active" data-filter="all">All</button>
+  <button class="filter-btn" data-filter="critical">🔴 Critical</button>
+  <button class="filter-btn" data-filter="high">🟠 High</button>
+  <button class="filter-btn" data-filter="medium">🟡 Medium</button>
+  <button class="filter-btn" data-filter="low">🟢 Low</button>
+  <button class="filter-btn" data-filter="done">✅ Completed</button>
+  <button class="share-btn" onclick="copyShareLink()">🔗 Share Link</button>
+  <button class="reset-btn" onclick="resetAll()">Reset All</button>
+</div>
+
+<div class="add-task-section">
+  <button class="add-task-toggle" onclick="toggleAddForm()">
+    <span class="plus-icon">+</span>
+    Naya Task Add Karo
+  </button>
+  <div class="add-task-form" id="addTaskForm">
+    <div class="form-row">
+      <label>Task Description *</label>
+      <textarea id="newTaskText" placeholder="Kya fix karna hai? (e.g. Login page par error message add karo)"></textarea>
+    </div>
+    <div class="form-inline">
+      <div class="form-row">
+        <label>Priority *</label>
+        <select id="newTaskPriority">
+          <option value="critical">🔴 Critical</option>
+          <option value="high" selected>🟠 High</option>
+          <option value="medium">🟡 Medium</option>
+          <option value="low">🟢 Low</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label>Section</label>
+        <select id="newTaskSection">
+          <option value="Critical Issues">Critical Issues</option>
+          <option value="Registration Flow">Registration Flow</option>
+          <option value="Email Verification">Email Verification</option>
+          <option value="Login Flow">Login Flow</option>
+          <option value="Password Reset">Password Reset</option>
+          <option value="Contact Form">Contact Form</option>
+          <option value="Expert Booking">Expert Booking</option>
+          <option value="Newsletter">Newsletter</option>
+          <option value="Error Pages">Error Pages</option>
+          <option value="System & Navigation">System & Navigation</option>
+          <option value="Assessment Flow">Assessment Flow</option>
+          <option value="Link Audit">Link Audit</option>
+          <option value="Implementation">Implementation</option>
+          <option value="Custom">Custom</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label>Location / Page</label>
+        <input type="text" id="newTaskLocation" placeholder="/page ya 'Site-wide'">
+      </div>
+    </div>
+    <div>
+      <button class="add-btn" onclick="addTask()">✓ Task Add Karo</button>
+      <button class="cancel-btn" onclick="toggleAddForm()">Cancel</button>
+    </div>
+    <div class="success-flash" id="successFlash">✅ Task successfully add ho gaya!</div>
+  </div>
+</div>
+
+<div id="todoContainer"></div>
+
+<footer>✅ Task click karke complete karo • 🔗 Share button se link share karo — status bhi saath jaayega • ➕ Naya task add karo</footer>
+
+<script>
+const todos = [
+  // CRITICAL
+  { id: 1, text: "Homepage loading failure fix karo — blank white page issue resolve karo", priority: "critical", section: "Critical Issues", location: "ifindlife.org/" },
+  { id: 2, text: "Registration form — real-time inline validation messages add karo (sab fields ke liye)", priority: "critical", section: "Critical Issues", location: "/register" },
+  { id: 3, text: "Login page — 'incorrect password', 'account not found' error messages add karo", priority: "critical", section: "Critical Issues", location: "/user-login" },
+  { id: 4, text: "Form submission success confirmations add karo (registration, contact, booking)", priority: "critical", section: "Critical Issues", location: "All Forms" },
+  { id: 5, text: "Email verification flow implement karo — 'verification email sent' confirmation add karo", priority: "critical", section: "Critical Issues", location: "/register" },
+
+  // REGISTRATION
+  { id: 6, text: "Full Name field — 'Please enter your full name' error message (on blur)", priority: "high", section: "Registration Flow", location: "/register" },
+  { id: 7, text: "Email field — 'already registered' error message with 'Log in here' link", priority: "high", section: "Registration Flow", location: "/register" },
+  { id: 8, text: "Phone number — country code hint (+91) aur invalid format error add karo", priority: "high", section: "Registration Flow", location: "/register" },
+  { id: 9, text: "Date of Birth — 18+ age restriction validation add karo", priority: "high", section: "Registration Flow", location: "/register" },
+  { id: 10, text: "Date of Birth — future date invalid error add karo", priority: "medium", section: "Registration Flow", location: "/register" },
+  { id: 11, text: "Password strength meter add karo (weak/good/strong visual indicator)", priority: "high", section: "Registration Flow", location: "/register" },
+  { id: 12, text: "Confirm Password mismatch/match message add karo", priority: "high", section: "Registration Flow", location: "/register" },
+  { id: 13, text: "Terms & Conditions checkbox — 'Please accept' error message on submit", priority: "medium", section: "Registration Flow", location: "/register" },
+  { id: 14, text: "Gender field — 'Prefer not to say' option add karo", priority: "low", section: "Registration Flow", location: "/register" },
+  { id: 15, text: "Form submit loading state — 'Creating your account...' spinner add karo", priority: "high", section: "Registration Flow", location: "/register" },
+  { id: 16, text: "Registration success modal — verification email sent message with resend option", priority: "high", section: "Registration Flow", location: "/register" },
+  { id: 17, text: "Server error modal — 'Something went wrong' with retry/support CTA", priority: "high", section: "Registration Flow", location: "/register" },
+
+  // EMAIL VERIFICATION
+  { id: 18, text: "Email verification success page create karo", priority: "high", section: "Email Verification", location: "/verify-email" },
+  { id: 19, text: "Email verification link expired error page create karo", priority: "high", section: "Email Verification", location: "/verify-email" },
+  { id: 20, text: "Already verified — info page add karo with login redirect", priority: "medium", section: "Email Verification", location: "/verify-email" },
+  { id: 21, text: "Resend verification — rate limit message add karo (5 min wait)", priority: "medium", section: "Email Verification", location: "/verify-email" },
+
+  // LOGIN
+  { id: 22, text: "Login — 'Email not verified' warning + resend link add karo", priority: "high", section: "Login Flow", location: "/user-login" },
+  { id: 23, text: "Login — account locked message (5 failed attempts ke baad, 30 min wait)", priority: "high", section: "Login Flow", location: "/user-login" },
+  { id: 24, text: "Login — account suspended message + support contact link", priority: "high", section: "Login Flow", location: "/user-login" },
+  { id: 25, text: "Login — session expired banner add karo", priority: "medium", section: "Login Flow", location: "/user-login" },
+  { id: 26, text: "Login — 'too many attempts' lockout warning add karo", priority: "high", section: "Login Flow", location: "/user-login" },
+  { id: 27, text: "Login success — 'Welcome back!' toast notification add karo", priority: "medium", section: "Login Flow", location: "/user-login" },
+  { id: 28, text: "Login loading state — 'Logging in...' button spinner add karo", priority: "medium", section: "Login Flow", location: "/user-login" },
+
+  // FORGOT PASSWORD
+  { id: 29, text: "Forgot password — 'Reset link sent' success message add karo", priority: "high", section: "Password Reset", location: "/forgot-password" },
+  { id: 30, text: "Forgot password — 'Email not found' error message add karo", priority: "high", section: "Password Reset", location: "/forgot-password" },
+  { id: 31, text: "Forgot password — rate limit message add karo (15 min wait)", priority: "medium", section: "Password Reset", location: "/forgot-password" },
+  { id: 32, text: "Password reset — token expired error page create karo", priority: "high", section: "Password Reset", location: "/reset-password" },
+  { id: 33, text: "Password reset — token already used error page create karo", priority: "high", section: "Password Reset", location: "/reset-password" },
+  { id: 34, text: "Password reset — invalid token error page create karo", priority: "high", section: "Password Reset", location: "/reset-password" },
+  { id: 35, text: "Password reset — 'same as old password' warning add karo", priority: "medium", section: "Password Reset", location: "/reset-password" },
+  { id: 36, text: "Password reset success — confirmation page + auto-redirect to login", priority: "high", section: "Password Reset", location: "/reset-password" },
+
+  // CONTACT FORM
+  { id: 37, text: "Contact form — 'Message sent successfully' success modal add karo", priority: "high", section: "Contact Form", location: "/contact" },
+  { id: 38, text: "Contact form — all field validation errors add karo (name, email, subject, message)", priority: "high", section: "Contact Form", location: "/contact" },
+  { id: 39, text: "Contact form — 'Sending...' loading state button add karo", priority: "medium", section: "Contact Form", location: "/contact" },
+  { id: 40, text: "Contact form — submission failed error + direct email fallback add karo", priority: "medium", section: "Contact Form", location: "/contact" },
+  { id: 41, text: "Contact form — message too short warning (min 10 chars) add karo", priority: "low", section: "Contact Form", location: "/contact" },
+  { id: 42, text: "Contact form — rate limit message add karo", priority: "low", section: "Contact Form", location: "/contact" },
+
+  // EXPERT BOOKING
+  { id: 43, text: "Experts page — skeleton loaders add karo while loading", priority: "medium", section: "Expert Booking", location: "/experts" },
+  { id: 44, text: "Experts page — 'No experts found' empty state add karo", priority: "medium", section: "Expert Booking", location: "/experts" },
+  { id: 45, text: "Expert card — unavailable status indicator add karo", priority: "high", section: "Expert Booking", location: "/experts" },
+  { id: 46, text: "Favorites — 'Added/Removed from favorites' toast notification add karo", priority: "low", section: "Expert Booking", location: "/experts" },
+  { id: 47, text: "Booking — 'Please login to book' modal add karo for guests", priority: "high", section: "Expert Booking", location: "/experts" },
+  { id: 48, text: "Booking — time slot selection validation message add karo", priority: "high", section: "Expert Booking", location: "/experts" },
+  { id: 49, text: "Booking — 'Slot no longer available' real-time error add karo", priority: "high", section: "Expert Booking", location: "/experts" },
+  { id: 50, text: "Booking — confirmation modal (expert, date, time, price) add karo", priority: "high", section: "Expert Booking", location: "/experts" },
+  { id: 51, text: "Booking — 'Processing...' loading state add karo during payment", priority: "medium", section: "Expert Booking", location: "/experts" },
+  { id: 52, text: "Booking success — confirmation modal/page with email notification mention", priority: "high", section: "Expert Booking", location: "/experts" },
+  { id: 53, text: "Booking — payment failed error + retry/support options add karo", priority: "high", section: "Expert Booking", location: "/experts" },
+
+  // NEWSLETTER
+  { id: 54, text: "Newsletter — 'Successfully subscribed' success message add karo", priority: "medium", section: "Newsletter", location: "Footer" },
+  { id: 55, text: "Newsletter — 'Already subscribed' info message add karo", priority: "medium", section: "Newsletter", location: "Footer" },
+  { id: 56, text: "Newsletter — email validation error add karo", priority: "medium", section: "Newsletter", location: "Footer" },
+  { id: 57, text: "Newsletter — subscription failed error message add karo", priority: "low", section: "Newsletter", location: "Footer" },
+
+  // ERROR PAGES
+  { id: 58, text: "500 Server Error — branded error page create karo with refresh/home CTA", priority: "high", section: "Error Pages", location: "Site-wide" },
+  { id: 59, text: "503 Service Unavailable — maintenance page create karo", priority: "high", section: "Error Pages", location: "Site-wide" },
+  { id: 60, text: "Request timeout — error modal add karo with retry option", priority: "medium", section: "Error Pages", location: "Site-wide" },
+  { id: 61, text: "Network lost — top banner add karo for connection issues", priority: "medium", section: "Error Pages", location: "Site-wide" },
+  { id: 62, text: "Network restored — success toast notification add karo", priority: "low", section: "Error Pages", location: "Site-wide" },
+  { id: 63, text: "Slow connection — dismissible warning banner add karo", priority: "low", section: "Error Pages", location: "Site-wide" },
+
+  // SYSTEM / NAVIGATION
+  { id: 64, text: "Page loading — skeleton loaders ya spinners add karo site-wide", priority: "medium", section: "System & Navigation", location: "Site-wide" },
+  { id: 65, text: "Image loading failed — placeholder icon add karo", priority: "low", section: "System & Navigation", location: "Site-wide" },
+  { id: 66, text: "Scroll-to-top button — long pages par add karo", priority: "low", section: "System & Navigation", location: "Site-wide" },
+  { id: 67, text: "Breadcrumb navigation — deep pages par add karo", priority: "low", section: "System & Navigation", location: "Site-wide" },
+  { id: 68, text: "Browser compatibility — old browsers ke liye warning banner add karo", priority: "low", section: "System & Navigation", location: "Site-wide" },
+
+  // ASSESSMENT
+  { id: 69, text: "Assessment — intro modal add karo (10 min, confidential notice)", priority: "medium", section: "Assessment Flow", location: "/assessment" },
+  { id: 70, text: "Assessment — required question skip warning add karo", priority: "medium", section: "Assessment Flow", location: "/assessment" },
+  { id: 71, text: "Assessment — auto-save progress indicator add karo", priority: "medium", section: "Assessment Flow", location: "/assessment" },
+  { id: 72, text: "Assessment — 'Are you sure you want to leave?' confirmation modal add karo", priority: "high", section: "Assessment Flow", location: "/assessment" },
+  { id: 73, text: "Assessment — 'Analyzing your responses...' loading screen add karo", priority: "medium", section: "Assessment Flow", location: "/assessment" },
+  { id: 74, text: "Assessment complete — success page with 'View Results' CTA add karo", priority: "high", section: "Assessment Flow", location: "/assessment" },
+
+  // WHATSAPP
+  { id: 75, text: "WhatsApp join — 'Redirecting to WhatsApp...' toast add karo", priority: "low", section: "WhatsApp / Community", location: "Site-wide" },
+  { id: 76, text: "WhatsApp — not installed message + install link (mobile users)", priority: "low", section: "WhatsApp / Community", location: "Mobile" },
+
+  // LINK AUDIT
+  { id: 77, text: "All navigation links (header & footer) test karo", priority: "high", section: "Link Audit", location: "Site-wide" },
+  { id: 78, text: "All CTA buttons site-wide test karo", priority: "high", section: "Link Audit", location: "Site-wide" },
+  { id: 79, text: "Services page links test karo", priority: "medium", section: "Link Audit", location: "/services" },
+  { id: 80, text: "Expert profile links test karo", priority: "medium", section: "Link Audit", location: "/experts" },
+  { id: 81, text: "Blog, program, FAQ links test karo", priority: "low", section: "Link Audit", location: "Site-wide" },
+  { id: 82, text: "Terms & Conditions, Privacy Policy, Disclaimer links test karo", priority: "high", section: "Link Audit", location: "Site-wide" },
+  { id: 83, text: "Social media links test karo", priority: "low", section: "Link Audit", location: "Footer" },
+  { id: 84, text: "Automated broken link checker run karo (Screaming Frog / Broken Link Checker)", priority: "high", section: "Link Audit", location: "Site-wide" },
+
+  // IMPLEMENTATION
+  { id: 85, text: "Message tone & voice guidelines implement karo (empathetic, not technical)", priority: "medium", section: "Implementation", location: "Dev Team" },
+  { id: 86, text: "Color system implement karo — Error #DC2626, Warning #F59E0B, Success #10B981, Info #3B82F6", priority: "medium", section: "Implementation", location: "Dev Team" },
+  { id: 87, text: "Toast notification timing set karo — Success 3-4s, Info 4-5s, Errors user-dismiss", priority: "medium", section: "Implementation", location: "Dev Team" },
+  { id: 88, text: "Accessibility — ARIA labels, aria-describedby, focus management implement karo", priority: "high", section: "Implementation", location: "Dev Team" },
+  { id: 89, text: "Mobile — toast bottom-position, modals full-screen, min 44px tap targets", priority: "medium", section: "Implementation", location: "Dev Team" },
+  { id: 90, text: "Spinner delay set karo — 300ms baad show karo (quick operations mein flash avoid)", priority: "low", section: "Implementation", location: "Dev Team" },
+];
+
+// State: load from URL hash first, then localStorage fallback
+function loadState() {
+  try {
+    const hash = window.location.hash.slice(1);
+    if (hash) {
+      const decoded = JSON.parse(atob(hash));
+      if (decoded && typeof decoded === 'object') return decoded;
+    }
+  } catch(e) {}
+  return JSON.parse(localStorage.getItem('ifindlife_todos') || '{}');
+}
+
+let state = loadState();
+let currentFilter = 'all';
+
+function saveState() {
+  localStorage.setItem('ifindlife_todos', JSON.stringify(state));
+  // Also update URL hash so sharing preserves completed status
+  try {
+    const encoded = btoa(JSON.stringify(state));
+    history.replaceState(null, '', '#' + encoded);
+  } catch(e) {}
+}
+
+function toggleTodo(id) {
+  state[id] = !state[id];
+  saveState();
+  render();
+  if (state[id]) showToast('✅ Task complete mark ho gaya!', '#276749');
+  else showToast('↩️ Task incomplete mark ho gaya', '#718096');
+}
+
+function showToast(msg, bg) {
+  let toast = document.getElementById('mainToast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'mainToast';
+    toast.style.cssText = 'position:fixed;bottom:24px;right:24px;color:white;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:600;box-shadow:0 4px 16px rgba(0,0,0,0.2);z-index:9999;transition:opacity 0.4s;pointer-events:none;';
+    document.body.appendChild(toast);
+  }
+  toast.style.background = bg;
+  toast.textContent = msg;
+  toast.style.opacity = '1';
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(() => toast.style.opacity = '0', 3000);
+}
+
+function resetAll() {
+  if (confirm('Sab tasks reset karna chahte hain? Completed tasks bhi uncomplete ho jaayenge.')) {
+    state = {};
+    saveState();
+    render();
+  }
+}
+
+function copyShareLink() {
+  saveState(); // ensure hash is up to date
+  const url = window.location.href;
+  navigator.clipboard.writeText(url).then(() => {
+    showToast('🔗 Link copy ho gaya! Kisi ko bhi share karo', '#3182ce');
+  }).catch(() => {
+    prompt('Yeh link copy karke share karo:', url);
+  });
+}
+
+function allTodos() { return [...todos, ...customTodos]; }
+
+function updateStats() {
+  const all = allTodos();
+  const done = all.filter(t => state[t.id]).length;
+  const total = all.length;
+  const pct = Math.round(done / total * 100);
+  document.getElementById('totalCount').textContent = total;
+  document.getElementById('doneCount').textContent = done;
+  document.getElementById('pendingCount').textContent = total - done;
+  document.getElementById('pctCount').textContent = pct + '%';
+  document.getElementById('progressFill').style.width = pct + '%';
+}
+
+function render() {
+  updateStats();
+  const container = document.getElementById('todoContainer');
+  container.innerHTML = '';
+
+  const all = allTodos();
+  let filtered = all;
+  if (currentFilter === 'done') filtered = all.filter(t => state[t.id]);
+  else if (currentFilter !== 'all') filtered = all.filter(t => t.priority === currentFilter && !state[t.id]);
+
+  // Group by section
+  const sections = {};
+  filtered.forEach(t => {
+    if (!sections[t.section]) sections[t.section] = [];
+    sections[t.section].push(t);
+  });
+
+  if (Object.keys(sections).length === 0) {
+    container.innerHTML = '<div class="empty-state">🎉 Is filter mein koi task nahi hai!</div>';
+    return;
+  }
+
+  Object.entries(sections).forEach(([sectionName, items]) => {
+    const sec = document.createElement('div');
+    sec.className = 'section';
+    sec.innerHTML = `
+      <div class="section-header">
+        <h2>${sectionName}</h2>
+        <span class="section-toggle">${items.length} tasks</span>
+      </div>
+    `;
+    items.forEach(t => {
+      const item = document.createElement('div');
+      item.className = `todo-item ${t.priority} ${state[t.id] ? 'done' : ''}`;
+      item.onclick = () => toggleTodo(t.id);
+      const isCustom = String(t.id).startsWith('custom_');
+      item.innerHTML = `
+        <div class="checkbox"></div>
+        <div class="todo-content">
+          <div class="todo-text">${t.text}</div>
+          <div class="todo-meta">
+            <span class="tag ${t.priority}">${t.priority.toUpperCase()}</span>
+            <span class="tag location">📍 ${t.location}</span>
+            ${isCustom ? '<span class="tag custom-tag">Custom</span>' : ''}
+          </div>
+        </div>
+        ${isCustom ? `<button class="delete-btn" onclick="event.stopPropagation();deleteTask('${t.id}')">✕</button>` : ''}
+      `;
+      sec.appendChild(item);
+    });
+    container.appendChild(sec);
+  });
+}
+
+// Custom tasks (user-added)
+let customTodos = JSON.parse(localStorage.getItem('ifindlife_custom_todos') || '[]');
+function saveCustomTodos() { localStorage.setItem('ifindlife_custom_todos', JSON.stringify(customTodos)); }
+
+function toggleAddForm() {
+  const form = document.getElementById('addTaskForm');
+  form.classList.toggle('open');
+  if (form.classList.contains('open')) document.getElementById('newTaskText').focus();
+  document.getElementById('successFlash').style.display = 'none';
+}
+
+function addTask() {
+  const text = document.getElementById('newTaskText').value.trim();
+  if (!text) {
+    const ta = document.getElementById('newTaskText');
+    ta.style.borderColor = '#e53e3e'; ta.focus();
+    setTimeout(() => ta.style.borderColor = '', 1500);
+    return;
+  }
+  const priority = document.getElementById('newTaskPriority').value;
+  const section = document.getElementById('newTaskSection').value;
+  const location = document.getElementById('newTaskLocation').value.trim() || 'Site-wide';
+  const newId = 'custom_' + Date.now();
+  customTodos.push({ id: newId, text, priority, section, location });
+  saveCustomTodos();
+  document.getElementById('newTaskText').value = '';
+  document.getElementById('newTaskLocation').value = '';
+  document.getElementById('newTaskPriority').value = 'high';
+  document.getElementById('newTaskSection').value = 'Custom';
+  const flash = document.getElementById('successFlash');
+  flash.style.display = 'block';
+  setTimeout(() => flash.style.display = 'none', 2500);
+  render();
+}
+
+function deleteTask(id) {
+  if (!confirm('Yeh task delete karna chahte hain?')) return;
+  customTodos = customTodos.filter(t => t.id !== id);
+  delete state[id];
+  saveCustomTodos();
+  saveState();
+  render();
+}
+
+// Filter buttons
+document.querySelectorAll('.filter-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentFilter = btn.dataset.filter;
+    render();
+  });
+});
+
+render();
+</script>
+</body>
+</html>
